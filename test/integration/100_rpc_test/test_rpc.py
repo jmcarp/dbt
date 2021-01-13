@@ -66,7 +66,7 @@ class ServerProcess(dbt.flags.MP_CONTEXT.Process):
 
     def start(self):
         super().start()
-        for _ in range(180):
+        for _ in range(300):
             if self.is_up():
                 break
             time.sleep(0.5)
@@ -178,7 +178,7 @@ class HasRPCServer(DBTIntegrationTest):
     def url(self):
         return 'http://localhost:{}/jsonrpc'.format(self._server.port)
 
-    def poll_for_result(self, request_token, request_id=1, timeout=180, state='success', logs=None):
+    def poll_for_result(self, request_token, request_id=1, timeout=240, state='success', logs=None):
         start = time.time()
         kwargs = {
             'request_token': request_token,
@@ -205,7 +205,7 @@ class HasRPCServer(DBTIntegrationTest):
                     .format(delta, state, result)
                 )
 
-    def async_query(self, _method, _sql=None, _test_request_id=1, _poll_timeout=180, macros=None, **kwargs):
+    def async_query(self, _method, _sql=None, _test_request_id=1, _poll_timeout=240, macros=None, **kwargs):
         response = self.query(
             _method, _sql, _test_request_id, macros, **kwargs).json()
         result = self.assertIsResult(response, _test_request_id)
@@ -238,8 +238,8 @@ class HasRPCServer(DBTIntegrationTest):
             self.assertEqual(timing['name'], expected_name)
             self.assertIn('started_at', timing)
             self.assertIn('completed_at', timing)
-            datetime.strptime(timing['started_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
-            datetime.strptime(timing['completed_at'], '%Y-%m-%dT%H:%M:%S.%fZ')
+            datetime.strptime(timing['started_at'], '%Y-%m-%dT%H:%M:%S.%f')
+            datetime.strptime(timing['completed_at'], '%Y-%m-%dT%H:%M:%S.%f')
 
     def assertIsResult(self, data, id_=1):
         self.assertEqual(data['id'], id_)
@@ -350,7 +350,7 @@ class HasRPCServer(DBTIntegrationTest):
         return request_token, request_id
 
     def wait_for_state(
-        self, state, timestamp, timeout=180, raise_on_timeout=True
+        self, state, timestamp, timeout=240, raise_on_timeout=True
     ):
         started = time.time()
         time.sleep(0.5)
@@ -392,7 +392,6 @@ class HasRPCServer(DBTIntegrationTest):
         return stored
 
 
-@mark.flaky(rerun_filter=addr_in_use)
 class TestRPCServerCompileRun(HasRPCServer):
     @use_profile('postgres')
     def test_compile_sql_postgres(self):
@@ -601,7 +600,6 @@ class TestRPCServerCompileRun(HasRPCServer):
             table={'column_names': ['id'], 'rows': [[1.0]]}
         )
 
-    @mark.flaky(rerun_filter=None)
     @use_profile('postgres')
     def test_ps_kill_postgres(self):
         task_tags = {
@@ -691,7 +689,6 @@ class TestRPCServerCompileRun(HasRPCServer):
         self.assertGreater(rowdict[1]['elapsed'], 0)
         self.assertIsNone(rowdict[1]['tags'])
 
-    @mark.flaky(rerun_filter=lambda *a, **kw: True)
     @use_profile('postgres')
     def test_ps_kill_longwait_postgres(self):
         request_token, request_id = self.get_sleep_query()
@@ -761,6 +758,7 @@ class TestRPCServerCompileRun(HasRPCServer):
 
     @use_profile('postgres')
     def test_timeout_postgres(self):
+        # 'timeout' in this test is passed to postgres
         data = self.async_query(
             'run_sql',
             'select from pg_sleep(5)',
@@ -781,7 +779,6 @@ class TestRPCServerCompileRun(HasRPCServer):
         return
 
 
-@mark.flaky(rerun_filter=addr_in_use)
 class TestRPCServerProjects(HasRPCServer):
     def assertHasResults(self, result, expected, *, missing=None, num_expected=None):
         dct = self.assertIsResult(result)
@@ -984,10 +981,8 @@ class TestRPCServerProjects(HasRPCServer):
         self.async_query('cli_args', cli='deps').json()
 
 
-@mark.flaky(rerun_filter=addr_in_use)
 class TestRPCTaskManagement(HasRPCServer):
 
-    @mark.flaky(rerun_filter=lambda *a, **kw: True)
     @use_profile('postgres')
     def test_sighup_postgres(self):
         status = self.assertIsResult(self.query('status').json())
@@ -1005,7 +1000,7 @@ class TestRPCTaskManagement(HasRPCServer):
         self.assertIsResult(done_query)
         sleepers = []
 
-        sleepers.append(self.get_sleep_query(duration=180, request_id=1000))
+        sleepers.append(self.get_sleep_query(duration=240, request_id=1000))
         self.assertRunning(sleepers)
 
         self.run_command_with_id('seed', 20)
@@ -1095,7 +1090,6 @@ class CompletingServerProcess(ServerProcess):
         return result['result']['state'] in ('error', 'ready')
 
 
-@mark.flaky(rerun_filter=addr_in_use)
 class TestRPCServerDeps(HasRPCServer):
     ServerProcess = CompletingServerProcess
     should_seed = False
@@ -1148,7 +1142,7 @@ class TestRPCServerDeps(HasRPCServer):
         status = self._check_start_predeps()
 
         # do a dbt deps, wait for the result
-        self.assertIsResult(self.async_query('deps', _poll_timeout=180).json())
+        self.assertIsResult(self.async_query('deps', _poll_timeout=240).json())
 
         self._check_deps_ok(status)
 
@@ -1159,6 +1153,6 @@ class TestRPCServerDeps(HasRPCServer):
 
         # do a dbt deps, wait for the result
         self.assertIsResult(self.async_query(
-            'cli_args', cli='deps', _poll_timeout=180).json())
+            'cli_args', cli='deps', _poll_timeout=240).json())
 
         self._check_deps_ok(status)

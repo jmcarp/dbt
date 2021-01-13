@@ -143,7 +143,7 @@ class DBTIntegrationTest(unittest.TestCase):
     def database_host(self):
         if os.name == 'nt':
             return 'localhost'
-        return 'database'
+        return 'localhost'
 
     def postgres_profile(self):
         return {
@@ -1153,7 +1153,7 @@ class DBTIntegrationTest(unittest.TestCase):
         self.assertEqual(*args, **kwargs)
 
     def assertBetween(self, timestr, start, end=None):
-        datefmt = '%Y-%m-%dT%H:%M:%S.%fZ'
+        datefmt = '%Y-%m-%dT%H:%M:%S.%f'
         if end is None:
             end = datetime.utcnow()
 
